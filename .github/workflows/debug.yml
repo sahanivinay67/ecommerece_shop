@@ -83,10 +83,10 @@ jobs:
         shell: bash
 
       # Upload to GitHub Releases
-      - name: Publish Release
+      - name: Publish Debug Build
         uses: ncipollo/release-action@v1
         with:
-          tag: v${{ steps.version.outputs.version }}
+          tag: v${{ steps.version.outputs.version }}-debug
           name: "debug v${{ steps.version.outputs.version }}"
           artifacts: |
             build/app/outputs/apk/release/*.apk
