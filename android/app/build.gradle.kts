@@ -49,6 +49,8 @@ android {
                 ?: throw GradleException("storeFile is missing in key.properties")
             storePassword = keystoreProperties["storePassword"]?.toString()
                 ?: throw GradleException("storePassword is missing in key.properties")
+                
+            storeType = "PKCS12"
         }
     }
 
