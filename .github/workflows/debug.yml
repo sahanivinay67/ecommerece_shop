@@ -68,8 +68,9 @@ jobs:
 
       # Build Android Apks
       - name: Build Android Normal APK and release APK
-        run: flutter build apk 
-        run: flutter build apk --release --split-per-abi
+        run: |
+          flutter build apk
+          flutter build apk --release --split-per-abi
 
       # Build iOS app (no code signing)
       - name: Build iOS IPA (no codesign)
