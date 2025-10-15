@@ -12,27 +12,65 @@ jobs:
     runs-on: macos-latest
 
     steps:
+      # ✅ Checkout repository
       - uses: actions/checkout@v3
 
+      # ✅ Setup Java
       - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
 
+      # ✅ Setup Flutter
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           architecture: x64
 
-      # ✅ Clean old build artifacts and dependencies
+      # ✅ Cache Flutter dependencies
+      - name: Cache Flutter pub
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
+
+      # ✅ Cache Gradle dependencies
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # ✅ Clean build artifacts
       - run: flutter clean
       - run: flutter pub get
 
-      # ✅ Build Android release APKs
-      - run: flutter build apk --release --split-per-abi
+      # ✅ Setup keystore for Android signing
+      - name: Setup keystore
+        run: |
+          echo $KEYSTORE_BASE64 | base64 --decode > android/app/key.jks
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=app/key.jks
+          EOF
+        shell: bash
 
-      # ✅ Build iOS IPA
-      - run: |
+      # ✅ Build Android release APKs (split per ABI)
+      - name: Build Android APK
+        run: flutter build apk --release --split-per-abi
+
+      # ✅ Build iOS IPA (no code signing)
+      - name: Build iOS IPA
+        run: |
           flutter build ios --no-codesign
           cd build/ios/iphoneos
           mkdir Payload
@@ -41,7 +79,7 @@ jobs:
           cd ..
           zip -r app.ipa Payload
 
-      # ✅ Release step
+      # ✅ Upload artifacts to GitHub Releases
       - name: Push to Releases
         uses: ncipollo/release-action@v1
         with:
