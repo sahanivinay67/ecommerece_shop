@@ -12,22 +12,22 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      # ✅ Checkout repository
+      # Checkout repository
       - uses: actions/checkout@v3
 
-      # ✅ Setup Java
+      # Setup Java
       - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # ✅ Setup Flutter
+      # Setup Flutter
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           architecture: x64
 
-      # ✅ Cache Flutter dependencies
+      # Cache Flutter dependencies
       - name: Cache Flutter pub
         uses: actions/cache@v3
         with:
@@ -37,7 +37,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-flutter-
 
-      # ✅ Cache Gradle dependencies
+      # Cache Gradle dependencies
       - name: Cache Gradle
         uses: actions/cache@v3
         with:
@@ -48,27 +48,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # ✅ Clean build artifacts
+      # Clean build artifacts
       - run: flutter clean
       - run: flutter pub get
 
-      # ✅ Setup keystore for Android signing
+      # Setup keystore using secrets
       - name: Setup keystore
         run: |
-          echo $KEYSTORE_BASE64 | base64 --decode > android/app/key.jks
+          echo $KEYSTORE_BASE64 | base64 --decode > android/app/keystore.jks
           cat > android/key.properties <<EOF
           storePassword=$KEYSTORE_PASSWORD
           keyPassword=$KEY_PASSWORD
           keyAlias=$KEY_ALIAS
-          storeFile=app/key.jks
+          storeFile=keystore.jks
           EOF
         shell: bash
 
-      # ✅ Build Android release APKs (split per ABI)
+      # Build Android release APKs (split per ABI)
       - name: Build Android APK
         run: flutter build apk --release --split-per-abi
 
-      # ✅ Build iOS IPA (no code signing)
+      # Build iOS IPA (no code signing)
       - name: Build iOS IPA
         run: |
           flutter build ios --no-codesign
@@ -77,7 +77,7 @@ jobs:
           ln -s ../Runner.app Payload/Runner.app
           zip -r app.ipa Payload
 
-      # ✅ Upload artifacts to GitHub Releases
+      # Upload artifacts to GitHub Releases
       - name: Push to Releases
         uses: ncipollo/release-action@v1
         with:
