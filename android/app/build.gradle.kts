@@ -4,7 +4,7 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    // Flutter Gradle plugin must be applied last
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -55,7 +55,20 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
+
+            // Disable shrinking if you don't want minification
             isMinifyEnabled = false
+            isShrinkResources = false
+
+            // If you want shrinking, uncomment these lines:
+            /*
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            */
         }
     }
 }
