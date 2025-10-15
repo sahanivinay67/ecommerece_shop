@@ -1,10 +1,9 @@
-name: "Build & Release"
+name: "Release"
 
 on:
   push:
-    branches: [main, master, develop]
-  pull_request:
-    branches: [main, master]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -31,13 +30,11 @@ jobs:
       - name: Cache Flutter pub
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.pub-cache
+          path: ~/.pub-cache
           key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-
+          restore-keys: ${{ runner.os }}-flutter-
 
-      # Cache Gradle dependencies
+      # Cache Gradle
       - name: Cache Gradle
         uses: actions/cache@v3
         with:
@@ -45,14 +42,13 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          restore-keys: ${{ runner.os }}-gradle-
 
-      # Clean build artifacts
+      # Clean & Get Dependencies
       - run: flutter clean
       - run: flutter pub get
 
-      # Setup keystore using secrets (FIXED)
+      # Setup keystore for Android
       - name: Setup keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
@@ -62,39 +58,52 @@ jobs:
           keyAlias=${{ secrets.KEY_ALIAS }}
           storeFile=keystore.jks
           EOF
-        shell: bash
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
 
-      # Verify keystore
-      - name: Verify keystore
+      # Extract version from pubspec.yaml
+      - name: Extract app version
+        id: version
         run: |
-          ls -lh android/app/keystore.jks
-          file android/app/keystore.jks
-        shell: bash
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      # Build Android release APKs (split per ABI)
-      - name: Build Android APK
+      # Build Android App Bundle (.aab)
+      - name: Build Android App Bundle
+        run: flutter build appbundle --release
+
+      # Optional: Build split APKs
+      - name: Build Android APKs
         run: flutter build apk --release --split-per-abi
 
-      # Build iOS IPA (no code signing)
-      - name: Build iOS IPA
+      # Build iOS app (no code signing)
+      - name: Build iOS IPA (no codesign)
         run: |
           flutter build ios --no-codesign
           cd build/ios/iphoneos
           mkdir -p Payload
-          ln -s ../Runner.app Payload/Runner.app
+          cp -r Runner.app Payload/
           zip -r app.ipa Payload
+        shell: bash
 
-      # Upload artifacts to GitHub Releases
-      - name: Push to Releases
+      # Verify build outputs
+      - name: List build outputs
+        run: |
+          echo "=== Android Bundles ==="
+          ls -lh build/app/outputs/bundle/release/
+          echo "=== Android APKs ==="
+          ls -lh build/app/outputs/apk/release/
+          echo "=== iOS IPA ==="
+          ls -lh build/ios/iphoneos/
+
+      # Upload to GitHub Releases
+      - name: Publish Release
         uses: ncipollo/release-action@v1
         with:
+          tag: v${{ steps.version.outputs.version }}
+          name: "Release v${{ steps.version.outputs.version }}"
           artifacts: |
-            build/app/outputs/apk/release/*.apk
+            build/app/outputs/bundle/release/app-release.aab
+            build/app/outputs/apk/release/
             build/ios/iphoneos/app.ipa
-          tag: v1.0.${{ github.run_number }}
           token: ${{ secrets.TOKEN }}
+          draft: false
+          prerelease: false
